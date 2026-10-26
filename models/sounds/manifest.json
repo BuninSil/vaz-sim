@@ -1,0 +1,183 @@
+{
+ "eng_idle": {
+  "rpm": 877.5,
+  "loop": true,
+  "len": 2.872
+ },
+ "eng_on_2050": {
+  "rpm": 2062.5,
+  "loop": true,
+  "len": 1.207
+ },
+ "eng_on_2850": {
+  "rpm": 2977.5,
+  "loop": true,
+  "len": 1.3
+ },
+ "eng_on_3300": {
+  "rpm": 3307.5,
+  "loop": true,
+  "len": 0.717
+ },
+ "eng_on_3800": {
+  "rpm": 3828.8,
+  "loop": true,
+  "len": 0.619
+ },
+ "eng_on_4200": {
+  "rpm": 4215.0,
+  "loop": true,
+  "len": 0.612
+ },
+ "eng_off_3700": {
+  "rpm": 3883.9,
+  "loop": true,
+  "len": 1.715
+ },
+ "eng_off_3150": {
+  "rpm": 3139.8,
+  "loop": true,
+  "len": 1.93
+ },
+ "eng_off_2500": {
+  "rpm": 2505.5,
+  "loop": true,
+  "len": 1.413
+ },
+ "eng_stop": {
+  "loop": false,
+  "len": 2.0
+ },
+ "starter_engage": {
+  "loop": false,
+  "len": 0.35
+ },
+ "starter_loop": {
+  "loop": true,
+  "len": 1.65
+ },
+ "starter_fail": {
+  "loop": false,
+  "len": 1.15
+ },
+ "crank_nostart": {
+  "loop": true,
+  "len": 1.7
+ },
+ "rod_knock": {
+  "loop": true,
+  "len": 24.0
+ },
+ "bearing_knock": {
+  "loop": true,
+  "len": 8.6
+ },
+ "belt_squeal": {
+  "loop": true,
+  "len": 6.0
+ },
+ "steam": {
+  "loop": true,
+  "len": 28.0
+ },
+ "backfire": {
+  "loop": false,
+  "len": 1.6
+ },
+ "road": {
+  "loop": true,
+  "len": 75.0
+ },
+ "gravel": {
+  "loop": true,
+  "len": 60.0
+ },
+ "tire_squeal": {
+  "loop": true,
+  "len": 1.65
+ },
+ "tire_squeal2": {
+  "loop": true,
+  "len": 2.4
+ },
+ "bump": {
+  "loop": false,
+  "len": 0.31
+ },
+ "bump2": {
+  "loop": false,
+  "len": 0.33
+ },
+ "crash": {
+  "loop": false,
+  "len": 5.55
+ },
+ "crash_glass": {
+  "loop": false,
+  "len": 2.4
+ },
+ "impact": {
+  "loop": false,
+  "len": 1.97
+ },
+ "door_open": {
+  "loop": false,
+  "len": 0.93
+ },
+ "door_close": {
+  "loop": false,
+  "len": 1.2
+ },
+ "door_close2": {
+  "loop": false,
+  "len": 0.95
+ },
+ "door_squeak": {
+  "loop": false,
+  "len": 0.48
+ },
+ "hood_open": {
+  "loop": false,
+  "len": 1.35
+ },
+ "hood_close": {
+  "loop": false,
+  "len": 0.75
+ },
+ "trunk_open": {
+  "loop": false,
+  "len": 0.65
+ },
+ "trunk_close": {
+  "loop": false,
+  "len": 0.7
+ },
+ "handbrake_on": {
+  "loop": false,
+  "len": 1.7
+ },
+ "handbrake_off": {
+  "loop": false,
+  "len": 1.2
+ },
+ "indicator_tick": {
+  "loop": false,
+  "len": 0.17
+ },
+ "indicator_tock": {
+  "loop": false,
+  "len": 0.17
+ },
+ "horn_start": {
+  "loop": false,
+  "len": 0.92
+ },
+ "horn_loop": {
+  "loop": true,
+  "len": 2.6
+ },
+ "horn_end": {
+  "loop": false,
+  "len": 0.5
+ }
+}

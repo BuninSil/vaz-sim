@@ -1,0 +1,179 @@
+[gd_scene format=3 uid="uid://1gwrhgickxwa"]
+
+[ext_resource type="Script" uid="uid://dwycrc288qp2f" path="res://engine.gd" id="1_engine"]
+
+[sub_resource type="Environment" id="Environment_main"]
+background_mode = 1
+background_color = Color(0.025, 0.035, 0.055, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.65, 0.72, 0.85, 1)
+ambient_light_energy = 0.8
+tonemap_mode = 2
+glow_enabled = true
+glow_intensity = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Material_piston"]
+albedo_color = Color(0.72, 0.74, 0.72, 1)
+metallic = 0.8
+roughness = 0.25
+
+[sub_resource type="StandardMaterial3D" id="Material_cylinder"]
+transparency = 1
+albedo_color = Color(0.35, 0.7, 1, 0.16)
+metallic = 0.2
+roughness = 0.1
+
+[sub_resource type="StandardMaterial3D" id="Material_rod"]
+albedo_color = Color(0.18, 0.31, 0.4, 1)
+metallic = 0.75
+roughness = 0.3
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_floor"]
+size = Vector2(10, 10)
+
+[node name="Engine" type="Node3D" unique_id=565555021]
+script = ExtResource("1_engine")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1619514210]
+environment = SubResource("Environment_main")
+
+[node name="Piston" type="CSGCylinder3D" parent="." unique_id=1499097563]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.35, 1.5, 0)
+radius = 0.28
+height = 0.28
+material = SubResource("Material_piston")
+
+[node name="Cylinder" type="CSGCylinder3D" parent="." unique_id=1980562920]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.35, 0.95, 0)
+radius = 0.36
+height = 1.7
+material = SubResource("Material_cylinder")
+
+[node name="Crankshaft" type="Node3D" parent="." unique_id=270026794]
+
+[node name="MainJournal" type="CSGCylinder3D" parent="Crankshaft" unique_id=240193729]
+transform = Transform3D(-4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0, 1, 0, 0, 0)
+radius = 0.12
+height = 2.4
+material = SubResource("Material_piston")
+
+[node name="CrankPin" type="Node3D" parent="Crankshaft" unique_id=497583954]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.35, 0.3, 0)
+
+[node name="Journal" type="CSGCylinder3D" parent="Crankshaft/CrankPin" unique_id=772486071]
+transform = Transform3D(-4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0, 1, 0, 0, 0)
+radius = 0.105
+height = 0.42
+material = SubResource("Material_rod")
+
+[node name="CrankPin2" type="Node3D" parent="Crankshaft" unique_id=1339938677]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.45, -0.3, 0)
+
+[node name="Journal" type="CSGCylinder3D" parent="Crankshaft/CrankPin2" unique_id=1609946655]
+transform = Transform3D(-4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0, 1, 0, 0, 0)
+radius = 0.105
+height = 0.42
+material = SubResource("Material_rod")
+
+[node name="CrankPin3" type="Node3D" parent="Crankshaft" unique_id=1488210678]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.45, -0.3, 0)
+
+[node name="Journal" type="CSGCylinder3D" parent="Crankshaft/CrankPin3" unique_id=1868280593]
+transform = Transform3D(-4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0, 1, 0, 0, 0)
+radius = 0.105
+height = 0.42
+material = SubResource("Material_rod")
+
+[node name="CrankPin4" type="Node3D" parent="Crankshaft" unique_id=925020373]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.35, 0.3, 0)
+
+[node name="Journal" type="CSGCylinder3D" parent="Crankshaft/CrankPin4" unique_id=74853757]
+transform = Transform3D(-4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0, 1, 0, 0, 0)
+radius = 0.105
+height = 0.42
+material = SubResource("Material_rod")
+
+[node name="Piston2" type="CSGCylinder3D" parent="." unique_id=809545632]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.45, 0.9, 0)
+radius = 0.28
+height = 0.28
+material = SubResource("Material_piston")
+
+[node name="Cylinder2" type="CSGCylinder3D" parent="." unique_id=29842729]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.45, 0.95, 0)
+radius = 0.36
+height = 1.7
+material = SubResource("Material_cylinder")
+
+[node name="Piston3" type="CSGCylinder3D" parent="." unique_id=1037266060]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.45, 0.9, 0)
+radius = 0.28
+height = 0.28
+material = SubResource("Material_piston")
+
+[node name="Cylinder3" type="CSGCylinder3D" parent="." unique_id=1513189791]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.45, 0.95, 0)
+radius = 0.36
+height = 1.7
+material = SubResource("Material_cylinder")
+
+[node name="Piston4" type="CSGCylinder3D" parent="." unique_id=583769994]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.35, 1.5, 0)
+radius = 0.28
+height = 0.28
+material = SubResource("Material_piston")
+
+[node name="Cylinder4" type="CSGCylinder3D" parent="." unique_id=1286336241]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.35, 0.95, 0)
+radius = 0.36
+height = 1.7
+material = SubResource("Material_cylinder")
+
+[node name="ConnectingRod2" type="CSGCylinder3D" parent="." unique_id=1442103459]
+radius = 0.075
+height = 1.2
+material = SubResource("Material_rod")
+
+[node name="ConnectingRod3" type="CSGCylinder3D" parent="." unique_id=1285850418]
+radius = 0.075
+height = 1.2
+material = SubResource("Material_rod")
+
+[node name="ConnectingRod4" type="CSGCylinder3D" parent="." unique_id=291746260]
+radius = 0.075
+height = 1.2
+material = SubResource("Material_rod")
+
+[node name="ConnectingRod" type="CSGCylinder3D" parent="." unique_id=1332595587]
+radius = 0.075
+height = 1.2
+material = SubResource("Material_rod")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=80777615]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.4, 2.6, 6.5)
+current = true
+fov = 50.0
+
+[node name="KeyLight" type="DirectionalLight3D" parent="." unique_id=1063480272]
+transform = Transform3D(0.8480481, 0.41758206, -0.32625088, 0, 0.6156615, 0.7880107, 0.52991927, -0.668271, 0.5221106, 0, 0, 0)
+light_energy = 2.0
+shadow_enabled = true
+
+[node name="FillLight" type="OmniLight3D" parent="." unique_id=576582979]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.8, 1.8, 2.2)
+light_color = Color(0.4, 0.65, 1, 1)
+light_energy = 5.0
+omni_range = 7.0
+
+[node name="Floor" type="MeshInstance3D" parent="." unique_id=44307945]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.0278907, 0)
+mesh = SubResource("PlaneMesh_floor")
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=666481345]
+
+[node name="RPM" type="Label" parent="HUD" unique_id=940151962]
+offset_left = 22.0
+offset_top = 18.0
+theme_override_colors/font_color = Color(0.9, 0.96, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "ВАЗ-21061"
