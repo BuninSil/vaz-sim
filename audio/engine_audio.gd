@@ -130,7 +130,7 @@ func _setup_buses() -> void:
 
 
 func _ogg(name: String) -> AudioStreamOggVorbis:
-	return AudioStreamOggVorbis.load_from_file(ProjectSettings.globalize_path(DIR + name + ".ogg"))
+	return AudioStreamOggVorbis.load_from_file(MeshUtil.raw_path(DIR + name + ".ogg"))
 
 
 func _loop_player(name: String, bus: String) -> AudioStreamPlayer:

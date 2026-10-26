@@ -9,6 +9,7 @@ var model: EngineModel
 var rig: CameraRig
 var audio: EngineAudio
 var hud: Hud
+var touch: TouchControls
 
 var selected: EnginePart
 var hovered: EnginePart
@@ -61,10 +62,35 @@ func _ready() -> void:
 	sim.record_audio = true
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	# Сенсорные кнопки лежат под вкладками: открытая панель их перекрывает.
+	touch = TouchControls.new()
+	touch.visible = false
+	layer.add_child(touch)
 	hud = Hud.new()
 	hud.sim = sim
 	hud.model = model
 	layer.add_child(hud)
+	touch.blocked = hud.is_over_ui
+	rig.touch_blocked = func(p: Vector2) -> bool: return hud.is_over_ui(p) or touch.is_over_pad(p)
+	touch.crank.connect(func(on: bool) -> void:
+		if on:
+			if sim.electrical.key == 0:
+				sim.electrical.key = 1
+			hud.start_cranking()
+		else:
+			hud.stop_cranking()
+	)
+	touch.gear_step.connect(_shift)
+	touch.action.connect(func(a: String) -> void:
+		match a:
+			"camera":
+				_next_camera()
+			"lights":
+				_next_lights()
+			"ignition":
+				sim.electrical.key = 0 if sim.electrical.key >= 1 else 1
+	)
+	hud.request_touch.connect(func(on: bool) -> void: touch.visible = on)
 	hud.request_remove.connect(func() -> void: _remove(selected))
 	hud.request_install.connect(func() -> void: _install(selected))
 	hud.request_disassemble_all.connect(_disassemble_all)
@@ -122,6 +148,9 @@ func _ready() -> void:
 	hud.show_part(null, [], [], false, false)
 	_draw_passport_curve()
 	hud.show_message("Двигатель прогрет, зажигание включено. Удерживайте пробел или кнопку «Стартер», чтобы завести.")
+	if OS.has_feature("mobile") or "--touch" in OS.get_cmdline_user_args():
+		hud.touch_check.button_pressed = true
+		hud.setup_mobile()
 
 
 func _build_world() -> void:
@@ -287,7 +316,7 @@ func _handle_controls(delta: float) -> void:
 	if drive_mode:
 		_drive_controls(delta)
 	var foot := Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP)
-	var target := 1.0 if foot else hud.hand_throttle
+	var target := 1.0 if foot else maxf(hud.hand_throttle, _touch_throttle())
 	# Автосцепление переключает как водитель: на время переключения газ сброшен,
 	# иначе мотор без нагрузки за доли секунды улетает за отсечку прочности (8200 об/мин).
 	if drive_mode and sim.drivetrain.vehicle.auto_clutch and sim.drivetrain.vehicle.shift_timer > 0.0:
@@ -296,11 +325,11 @@ func _handle_controls(delta: float) -> void:
 	if not _sweep_active:
 		sim.carb.pedal = _pedal
 	if sim.drivetrain.mode == Drivetrain.Mode.CAR:
-		if Input.is_key_pressed(KEY_SHIFT):
+		if Input.is_key_pressed(KEY_SHIFT) or _touch_on("clutch"):
 			sim.drivetrain.clutch = move_toward(sim.drivetrain.clutch, 0.0, delta * 6.0)
 		else:
 			sim.drivetrain.clutch = move_toward(sim.drivetrain.clutch, hud.clutch_slider.value, delta * 1.5)
-		if Input.is_key_pressed(KEY_B):
+		if Input.is_key_pressed(KEY_B) or _touch_on("brake"):
 			sim.drivetrain.brake = 1.0
 	if sim.electrical.key == 2 and not model.is_installed("starter"):
 		hud.show_message("Стартер снят — завести нечем")
@@ -325,10 +354,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_TAB:
 				hud.toggle_panel()
 			KEY_L:
-				if drive_mode:
-					var next := (car.body_model.light_mode + 1) % 4
-					hud.lights_option.select(next)
-					_set_lights(next)
+				_next_lights()
 			KEY_H:
 				if drive_mode:
 					car.body_model.hazard = not car.body_model.hazard
@@ -354,21 +380,13 @@ func _unhandled_input(event: InputEvent) -> void:
 				else:
 					_turn_crank(10.0)
 			KEY_Q:
-				if drive_mode:
-					sim.drivetrain.vehicle.request_gear(sim.drivetrain.vehicle.requested_gear - 1 if sim.drivetrain.vehicle.shift_timer > 0.0 else sim.drivetrain.vehicle.gear - 1)
-				else:
-					hud.set_gear(maxi(sim.drivetrain.gear - 1, 0))
+				_shift(-1)
 			KEY_E:
-				if drive_mode:
-					sim.drivetrain.vehicle.request_gear(sim.drivetrain.vehicle.requested_gear + 1 if sim.drivetrain.vehicle.shift_timer > 0.0 else sim.drivetrain.vehicle.gear + 1)
-				else:
-					hud.set_gear(mini(sim.drivetrain.gear + 1, EngineSpecs.GEAR_RATIOS.size() - 1))
+				_shift(1)
 			KEY_V:
 				hud.follow_check.button_pressed = not hud.follow_check.button_pressed
 			KEY_K:
-				if drive_mode:
-					rig.set_mode((rig.mode + 1) % 3)
-					hud.show_message(["Камера за машиной", "Вид из салона (ПКМ — оглядеться)", "Кинокамера"][rig.mode])
+				_next_camera()
 			KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6:
 				if drive_mode:
 					return
@@ -389,6 +407,35 @@ func _unhandled_input(event: InputEvent) -> void:
 					_remove(p)
 
 
+func _shift(dir: int) -> void:
+	var vd := sim.drivetrain.vehicle
+	if drive_mode:
+		vd.request_gear((vd.requested_gear if vd.shift_timer > 0.0 else vd.gear) + dir)
+	else:
+		hud.set_gear(clampi(sim.drivetrain.gear + dir, 0, EngineSpecs.GEAR_RATIOS.size() - 1))
+
+
+func _next_camera() -> void:
+	if drive_mode:
+		rig.set_mode((rig.mode + 1) % 3)
+		hud.show_message(["Камера за машиной", "Вид из салона (ПКМ или палец — оглядеться)", "Кинокамера"][rig.mode])
+
+
+func _next_lights() -> void:
+	if drive_mode:
+		var next := (car.body_model.light_mode + 1) % 4
+		hud.lights_option.select(next)
+		_set_lights(next)
+
+
+func _touch_on(what: String) -> bool:
+	return touch.visible and touch.get(what)
+
+
+func _touch_throttle() -> float:
+	return touch.throttle if touch.visible else 0.0
+
+
 func _pick(screen: Vector2) -> EnginePart:
 	var cam := rig.camera
 	return model.pick(cam.project_ray_origin(screen), cam.project_ray_normal(screen))
@@ -401,7 +448,7 @@ func _update_hover() -> void:
 		hovered = null
 		return
 	var mouse := get_viewport().get_mouse_position()
-	var over_ui := hud.tabs.get_global_rect().has_point(mouse)
+	var over_ui := hud.tabs.get_global_rect().has_point(mouse) or touch.is_over_pad(mouse)
 	var p: EnginePart = null if over_ui else _pick(mouse)
 	if p != hovered:
 		if hovered != null and hovered != selected:
@@ -713,6 +760,7 @@ func set_drive_mode(on: bool) -> void:
 		Engine.max_physics_steps_per_frame = 3
 		drive_mode = true
 		hud.set_drive_mode_ui(true)
+		touch.set_drive_mode(true)
 		hud.show_message("На трассе. Заводите (пробел), Q/E — передача, W — газ. Автосцепление включено.")
 	else:
 		car.finish_sim()
@@ -733,22 +781,23 @@ func set_drive_mode(on: bool) -> void:
 		Engine.time_scale = 1.0
 		drive_mode = false
 		hud.set_drive_mode_ui(false)
+		touch.set_drive_mode(false)
 		hud.show_message("Двигатель снова на стенде.")
 
 
 func _drive_controls(delta: float) -> void:
 	var vd := sim.drivetrain.vehicle
-	var steer := 0.0
+	var steer := touch.steer if touch.visible else 0.0
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
 		steer -= 1.0
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
 		steer += 1.0
-	car.steer_input = steer
-	var braking := Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN)
+	car.steer_input = clampf(steer, -1.0, 1.0)
+	var braking := Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN) or _touch_on("brake")
 	vd.brake = move_toward(vd.brake, 1.0 if braking else 0.0, delta * (4.0 if braking else 6.0))
-	vd.handbrake = 1.0 if Input.is_key_pressed(KEY_CTRL) else 0.0
-	audio.horn = Input.is_key_pressed(KEY_G)
-	var clutch_in := Input.is_key_pressed(KEY_SHIFT)
+	vd.handbrake = 1.0 if Input.is_key_pressed(KEY_CTRL) or _touch_on("handbrake") else 0.0
+	audio.horn = Input.is_key_pressed(KEY_G) or _touch_on("horn")
+	var clutch_in := Input.is_key_pressed(KEY_SHIFT) or _touch_on("clutch")
 	vd.clutch_pedal = move_toward(vd.clutch_pedal, 1.0 if clutch_in else 0.0, delta * (8.0 if clutch_in else 1.6))
 	car.throttle = sim.carb.pedal
 	Engine.time_scale = hud.time_scale

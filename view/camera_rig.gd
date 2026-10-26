@@ -3,6 +3,7 @@ extends Node3D
 
 # Орбитальная камера: правая или средняя кнопка — вращать, Shift+ПКМ или СКМ — сдвигать,
 # колесо — приближать. Клавиши 1–6 — готовые ракурсы.
+# На телефоне: один палец — вращать (в салоне — оглядеться), два пальца — щипок, масштаб.
 
 var yaw := -0.75
 var pitch := -0.35
@@ -30,6 +31,9 @@ var _cine_look := Vector3.ZERO
 var _cine_kind := 0
 var _cine_side := 1.0
 var _cine_rng := RandomNumberGenerator.new()
+var _touches := {}                # индекс пальца → точка, только касания мимо интерфейса
+var _pinch := 0.0
+var touch_blocked: Callable       # (Vector2) -> bool: касание пришлось на интерфейс
 
 const VIEWS := {
 	"Общий вид": [-0.75, -0.35, 1.25, Vector3(0.0, 0.12, 0.0)],
@@ -74,20 +78,63 @@ func _unhandled_input(event: InputEvent) -> void:
 			_panning = mb.pressed and (mb.shift_pressed or mb.button_index == MOUSE_BUTTON_MIDDLE)
 			_dragging = mb.pressed and not _panning
 		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_goal_distance = maxf(_goal_distance * 0.9, 0.25)
+			_zoom(0.9)
 		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_goal_distance = minf(_goal_distance * 1.1, 25.0 if follow != null else 4.0)
+			_zoom(1.1)
+	elif event is InputEventScreenTouch:
+		var st := event as InputEventScreenTouch
+		if st.pressed and not (touch_blocked.is_valid() and touch_blocked.call(st.position)):
+			_touches[st.index] = st.position
+		elif not st.pressed:
+			_touches.erase(st.index)
+		_pinch = _pinch_span()
+		_dragging = _touches.size() == 1
+	elif event is InputEventScreenDrag:
+		var sd := event as InputEventScreenDrag
+		if not _touches.has(sd.index):
+			return
+		_touches[sd.index] = sd.position
+		if _touches.size() == 1:
+			_look(sd.relative * 1.4)
+		elif _touches.size() == 2:
+			var span := _pinch_span()
+			if _pinch > 1.0 and span > 1.0:
+				_zoom(_pinch / span)
+			_pinch = span
 	elif event is InputEventMouseMotion:
 		var mm := event as InputEventMouseMotion
-		if _dragging and mode == 1:
-			_head.x = clampf(_head.x - mm.relative.x * 0.005, -2.2, 2.2)
-			_head.y = clampf(_head.y - mm.relative.y * 0.005, -0.9, 0.7)
-		elif _dragging:
-			_goal_yaw -= mm.relative.x * 0.006
-			_goal_pitch = clampf(_goal_pitch - mm.relative.y * 0.006, -1.5, 1.5)
+		if _dragging and _touches.is_empty():
+			_look(mm.relative)
 		elif _panning:
 			var b := camera.global_transform.basis
 			_goal_target += (-b.x * mm.relative.x + b.y * mm.relative.y) * 0.0012 * _goal_distance
+
+
+func _notification(what: int) -> void:
+	# Свернули приложение с пальцем на экране — отпускания уже не придёт.
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and not _touches.is_empty():
+		_touches.clear()
+		_dragging = false
+
+
+func _look(rel: Vector2) -> void:
+	if mode == 1:
+		_head.x = clampf(_head.x - rel.x * 0.005, -2.2, 2.2)
+		_head.y = clampf(_head.y - rel.y * 0.005, -0.9, 0.7)
+	else:
+		_goal_yaw -= rel.x * 0.006
+		_goal_pitch = clampf(_goal_pitch - rel.y * 0.006, -1.5, 1.5)
+
+
+func _zoom(k: float) -> void:
+	_goal_distance = clampf(_goal_distance * k, 0.25, 25.0 if follow != null else 4.0)
+
+
+func _pinch_span() -> float:
+	if _touches.size() != 2:
+		return 0.0
+	var pts := _touches.values()
+	return (pts[0] as Vector2).distance_to(pts[1])
 
 
 func start_follow(node: Node3D) -> void:

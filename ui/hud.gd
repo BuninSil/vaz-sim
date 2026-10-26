@@ -26,6 +26,7 @@ signal request_engine(id: String)
 signal request_gearbox(id: String, final_drive: float)
 signal request_camera(mode: int)
 signal request_garage(param: String, value: Variant)
+signal request_touch(on: bool)
 
 var sim: EngineSim
 var model: EngineModel
@@ -68,6 +69,8 @@ var drive_mode := false
 var auto_clutch_check: CheckBox
 var follow_check: CheckBox
 var lights_option: OptionButton
+var quality_option: OptionButton
+var touch_check: Button
 var _view_buttons: Array[Button] = []
 
 var gauge_row: HBoxContainer
@@ -126,23 +129,35 @@ func _layout() -> void:
 	info_panel.custom_minimum_size.x = info_w
 	info_panel.position = Vector2(10, gauge_row.position.y + (maxf(210.0, 118.0 * 2.0 + 4.0) * gauge_k + 8.0 if gauge_row.visible else 0.0))
 	info_panel.reset_size()
-	toolbar.position = Vector2(vs.x - tab_w - 20.0 - toolbar.size.x, 10)
+	# Без вкладок тулбар прижимается к правому краю, а не висит посреди экрана.
+	toolbar.position = Vector2(vs.x - (tab_w + 20.0 if tabs.visible else 10.0) - toolbar.size.x, 10)
 	if free_w < 330.0 and info_panel.visible:
 		info_panel.visible = false
-	help_label.visible = vs.x > 1100.0
+	help_label.visible = vs.x > 1100.0 and not touch_check.button_pressed
 
 
 func _build_toolbar() -> void:
 	toolbar = HBoxContainer.new()
 	toolbar.add_theme_constant_override("separation", 4)
 	add_child(toolbar)
-	var t_panel := _toggle(toolbar, "Панель", true, func(on: bool) -> void: tabs.visible = on)
+	var t_panel := _toggle(toolbar, "Панель", true, func(on: bool) -> void:
+		tabs.visible = on
+		_layout()
+	)
 	t_panel.tooltip_text = "Показать/скрыть вкладки справа (Tab)"
 	_toggle(toolbar, "Приборы", true, func(on: bool) -> void:
 		gauge_row.visible = on
 		_layout()
 	)
 	_toggle(toolbar, "Показания", true, func(on: bool) -> void: info_panel.visible = on)
+	touch_check = _toggle(toolbar, "Сенсор", false, func(on: bool) -> void:
+		request_touch.emit(on)
+		# Вкладки справа закрыли бы газ и тормоз.
+		if on and tabs.visible:
+			toggle_panel()
+		_layout()
+	)
+	touch_check.tooltip_text = "Экранные кнопки: руль, педали, стартер"
 	var minus := _button(toolbar, "A−", func() -> void: set_ui_scale(ui_scale - 0.1))
 	minus.tooltip_text = "Уменьшить интерфейс"
 	var plus := _button(toolbar, "A+", func() -> void: set_ui_scale(ui_scale + 0.1))
@@ -165,6 +180,25 @@ func set_ui_scale(k: float) -> void:
 	get_window().content_scale_factor = ui_scale
 	show_message("Масштаб интерфейса: %.0f %%" % (ui_scale * 100.0))
 	_layout.call_deferred()
+
+
+# Точка занята интерфейсом — камера и выбор деталей её не трогают.
+func is_over_ui(p: Vector2) -> bool:
+	for c in [tabs, toolbar, gauge_row, info_panel]:
+		var ctrl := c as Control
+		if ctrl.visible and ctrl.get_global_rect().has_point(p):
+			return true
+	return false
+
+
+# Телефон: крупнее интерфейс, вкладки и показания свёрнуты, графика попроще.
+func setup_mobile() -> void:
+	set_ui_scale(1.6)
+	(toolbar.get_child(0) as Button).button_pressed = false
+	(toolbar.get_child(2) as Button).button_pressed = false
+	help_label.text = "Палец — вращать камеру · два пальца — масштаб · касание — выбрать деталь, двойное — снять/поставить"
+	quality_option.select(2)
+	quality_option.item_selected.emit(2)
 
 
 func toggle_panel() -> void:
@@ -586,6 +620,7 @@ func _tab_drive() -> void:
 		q.add_item(item)
 	q.item_selected.connect(func(i: int) -> void: request_quality.emit(i))
 	qr.add_child(q)
+	quality_option = q
 	_register(q, 0)
 	var cr := _row(v)
 	var cl := Label.new()

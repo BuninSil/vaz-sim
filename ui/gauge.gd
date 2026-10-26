@@ -56,21 +56,28 @@ func _draw() -> void:
 		draw_arc(c, r - 6.0, _angle(yellow_from, a0, a1), _angle(minf(red_from, max_value), a0, a1), 32, Color(0.9, 0.7, 0.1), 7.0, true)
 	if low_red_to > min_value:
 		draw_arc(c, r - 6.0, a0, _angle(low_red_to, a0, a1), 32, Color(0.85, 0.12, 0.08), 7.0, true)
-	# Шкала.
+	# Шкала. Отступы — доли радиуса: на маленьком приборе (телефон) цифры не съезжают в центр.
 	var v := min_value
 	var fs := int(maxf(r * 0.16, 8.0) * label_scale)
+	var tick := minf(12.0, r * 0.2)
+	var label_r := r - tick - maxf(fs * 1.1, r * 0.2)
+	# Мелкому прибору — каждую вторую цифру, иначе слипаются.
+	var every := 2 if r < 60.0 and (max_value - min_value) / major_step > 6.0 else 1
+	var n := 0
 	while v <= max_value + 1e-6:
 		var a := _angle(v, a0, a1)
 		var dir := Vector2(cos(a), sin(a))
-		draw_line(c + dir * (r - 14.0), c + dir * (r - 2.0), Color(0.9, 0.92, 0.95), 2.0, true)
-		var txt := ("%." + str(decimals) + "f") % v if decimals > 0 else str(int(round(v)))
-		var ts := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_CENTER, -1, fs)
-		draw_string(font, c + dir * (r - 28.0) - Vector2(ts.x * 0.5, -fs * 0.35), txt, HORIZONTAL_ALIGNMENT_CENTER, -1, fs, Color(0.85, 0.88, 0.9))
+		draw_line(c + dir * (r - 2.0 - tick), c + dir * (r - 2.0), Color(0.9, 0.92, 0.95), 2.0, true)
+		if n % every == 0:
+			var txt := ("%." + str(decimals) + "f") % v if decimals > 0 else str(int(round(v)))
+			var ts := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_CENTER, -1, fs)
+			draw_string(font, c + dir * label_r - Vector2(ts.x * 0.5, -fs * 0.35), txt, HORIZONTAL_ALIGNMENT_CENTER, -1, fs, Color(0.85, 0.88, 0.9))
+		n += 1
 		var half := v + major_step * 0.5
 		if half < max_value:
 			var ah := _angle(half, a0, a1)
 			var dh := Vector2(cos(ah), sin(ah))
-			draw_line(c + dh * (r - 8.0), c + dh * (r - 2.0), Color(0.6, 0.63, 0.66), 1.0, true)
+			draw_line(c + dh * (r - 2.0 - tick * 0.5), c + dh * (r - 2.0), Color(0.6, 0.63, 0.66), 1.0, true)
 		v += major_step
 	# Подписи.
 	var tsz := int(maxf(r * 0.15, 9.0) * (0.85 if r < 70.0 else 1.0))
@@ -87,7 +94,7 @@ func _draw() -> void:
 	# Стрелка.
 	var an := _angle(_shown, a0, a1)
 	var nd := Vector2(cos(an), sin(an))
-	draw_line(c - nd * r * 0.15, c + nd * (r - 10.0), Color(1.0, 0.45, 0.1), 3.0, true)
+	draw_line(c - nd * r * 0.15, c + nd * (r - tick * 0.8), Color(1.0, 0.45, 0.1), 3.0, true)
 	draw_circle(c, r * 0.07, Color(0.2, 0.2, 0.22))
 
 

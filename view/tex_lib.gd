@@ -18,7 +18,7 @@ static func tex(name: String, map: String, gray := false) -> Texture2D:
 	var key := "%s_%s_%s" % [name, map, gray]
 	if _cache.has(key):
 		return _cache[key]
-	var img := Image.load_from_file(ProjectSettings.globalize_path(DIR + name + "_" + map + ".jpg"))
+	var img := Image.load_from_file(MeshUtil.raw_path(DIR + name + "_" + map + ".jpg"))
 	if img == null:
 		return null
 	if gray:

@@ -84,7 +84,7 @@ func _ready() -> void:
 func _load_external_model() -> void:
 	var doc := GLTFDocument.new()
 	var state := GLTFState.new()
-	if doc.append_from_file(ProjectSettings.globalize_path(MODEL_PATH), state) != OK:
+	if doc.append_from_file(MeshUtil.raw_path(MODEL_PATH), state) != OK:
 		push_warning("Не удалось загрузить модель кузова: " + MODEL_PATH)
 		return
 	var scene := doc.generate_scene(state) as Node3D

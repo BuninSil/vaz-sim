@@ -324,7 +324,7 @@ const PLANTS_DIR := "res://models/plants/"
 
 # Достаёт из glTF нужные варианты: [сетка с материалами, базис узла (поворот/масштаб)].
 static func _load_variants(model: String, names: Array) -> Array:
-	var path := ProjectSettings.globalize_path(PLANTS_DIR + "%s/%s.gltf" % [model, model])
+	var path := MeshUtil.raw_path(PLANTS_DIR + "%s/%s.gltf" % [model, model])
 	if not FileAccess.file_exists(path):
 		return []
 	var doc := GLTFDocument.new()
