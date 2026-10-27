@@ -22,6 +22,7 @@ var blocked: Callable        # (Vector2) -> bool: точку перекрыл и
 var _pads: Array[Dictionary] = []
 var _touch_pad := {}          # индекс пальца → имя площадки
 var _touch_pos := {}          # индекс пальца → последняя точка
+var _font_size := 18
 
 
 func _ready() -> void:
@@ -43,27 +44,38 @@ func _layout() -> void:
 	var vs := get_viewport_rect().size
 	var u := clampf(vs.y / 7.0, 64.0, 140.0)
 	var m := u * 0.2
+	# Вырез камеры и скруглённые углы: кнопки держим внутри безопасной зоны экрана.
+	var left := m
+	var right := m
+	var win := Vector2(DisplayServer.window_get_size())
+	if OS.has_feature("mobile") and win.x > 0.0:
+		var safe := Rect2(DisplayServer.get_display_safe_area())
+		var k := vs.x / win.x
+		left = maxf(m, safe.position.x * k)
+		right = maxf(m, (win.x - safe.end.x) * k)
 	_pads.clear()
 	var bottom := vs.y - m
 	if drive_mode:
 		# Руль — широкая полоса слева: чем дальше палец от центра, тем круче поворот.
-		_add("steer", Rect2(m, bottom - u * 1.3, u * 3.6, u * 1.3), "◀  РУЛЬ  ▶", Color(0.35, 0.45, 0.6))
-		_add("clutch", Rect2(m, bottom - u * 2.5, u * 1.7, u * 1.0), "СЦЕП", Color(0.45, 0.45, 0.5))
-		_add("handbrake", Rect2(m + u * 1.9, bottom - u * 2.5, u * 1.7, u * 1.0), "РУЧН", Color(0.55, 0.4, 0.3))
-		var rx := vs.x - m
+		_add("steer", Rect2(left, bottom - u * 1.3, u * 3.6, u * 1.3), "◀  РУЛЬ  ▶", Color(0.35, 0.45, 0.6))
+		_add("clutch", Rect2(left, bottom - u * 2.5, u * 1.7, u * 1.0), "СЦЕП", Color(0.45, 0.45, 0.5))
+		_add("handbrake", Rect2(left + u * 1.9, bottom - u * 2.5, u * 1.7, u * 1.0), "РУЧН", Color(0.55, 0.4, 0.3))
+		var rx := vs.x - right
+		# Педали рядом и одной высоты, как в машине; передачи — строкой над ними.
 		_add("throttle", Rect2(rx - u * 1.3, bottom - u * 2.6, u * 1.3, u * 2.6), "ГАЗ", Color(0.3, 0.6, 0.35))
-		_add("brake", Rect2(rx - u * 2.8, bottom - u * 1.8, u * 1.3, u * 1.8), "ТОРМ", Color(0.65, 0.3, 0.3))
-		_add("gear_up", Rect2(rx - u * 1.3, bottom - u * 3.8, u * 1.3, u * 1.0), "▲ ПЕР", Color(0.4, 0.4, 0.55))
-		_add("gear_down", Rect2(rx - u * 2.8, bottom - u * 3.0, u * 1.3, u * 1.0), "▼ ПЕР", Color(0.4, 0.4, 0.55))
+		_add("brake", Rect2(rx - u * 2.8, bottom - u * 2.6, u * 1.3, u * 2.6), "ТОРМ", Color(0.65, 0.3, 0.3))
+		_add("gear_up", Rect2(rx - u * 1.3, bottom - u * 3.7, u * 1.3, u * 0.9), "▲ ПЕР", Color(0.4, 0.4, 0.55))
+		_add("gear_down", Rect2(rx - u * 2.8, bottom - u * 3.7, u * 1.3, u * 0.9), "▼ ПЕР", Color(0.4, 0.4, 0.55))
 		_add("crank", Rect2(rx - u * 4.3, bottom - u * 1.0, u * 1.3, u * 1.0), "СТАРТ", Color(0.7, 0.55, 0.2))
-		_add("horn", Rect2(rx - u * 4.3, bottom - u * 2.1, u * 1.3, u * 0.9), "СИГН", Color(0.4, 0.4, 0.45))
-		_add("camera", Rect2(m + u * 3.8, bottom - u * 0.8, u * 1.1, u * 0.8), "КАМ", Color(0.3, 0.35, 0.4))
-		_add("lights", Rect2(m + u * 3.8, bottom - u * 1.7, u * 1.1, u * 0.8), "ФАРЫ", Color(0.3, 0.35, 0.4))
+		_add("horn", Rect2(rx - u * 4.3, bottom - u * 2.0, u * 1.3, u * 0.9), "СИГН", Color(0.4, 0.4, 0.45))
+		_add("camera", Rect2(left + u * 3.8, bottom - u * 0.8, u * 1.1, u * 0.8), "КАМ", Color(0.3, 0.35, 0.4))
+		_add("lights", Rect2(left + u * 3.8, bottom - u * 1.7, u * 1.1, u * 0.8), "ФАРЫ", Color(0.3, 0.35, 0.4))
 	else:
 		# На стенде нужны только стартер и газ, остальное — во вкладках.
-		_add("crank", Rect2(m, bottom - u * 1.0, u * 1.6, u * 1.0), "СТАРТЕР", Color(0.7, 0.55, 0.2))
-		_add("ignition", Rect2(m + u * 1.8, bottom - u * 1.0, u * 1.6, u * 1.0), "ЗАЖИГ", Color(0.4, 0.4, 0.5))
-		_add("throttle", Rect2(m + u * 3.6, bottom - u * 1.8, u * 1.0, u * 1.8), "ГАЗ", Color(0.3, 0.6, 0.35))
+		_add("crank", Rect2(left, bottom - u * 1.0, u * 1.6, u * 1.0), "СТАРТЕР", Color(0.7, 0.55, 0.2))
+		_add("ignition", Rect2(left + u * 1.8, bottom - u * 1.0, u * 1.6, u * 1.0), "ЗАЖИГ", Color(0.4, 0.4, 0.5))
+		_add("throttle", Rect2(left + u * 3.6, bottom - u * 1.8, u * 1.0, u * 1.8), "ГАЗ", Color(0.3, 0.6, 0.35))
+	_font_size = int(clampf(u * 0.24, 14.0, 30.0))
 	queue_redraw()
 
 
@@ -196,8 +208,12 @@ func _draw() -> void:
 		sb.set_border_width_all(2)
 		sb.set_corner_radius_all(int(r.size.y * 0.18))
 		draw_style_box(sb, r)
-		var fs := int(clampf(r.size.y * 0.24, 14.0, 30.0))
+		# Подписи одного кегля; длинная подпись ужимается под ширину кнопки.
+		var fs := _font_size
 		var ts := font.get_string_size(pad["text"], HORIZONTAL_ALIGNMENT_CENTER, -1, fs)
+		if ts.x > r.size.x * 0.88:
+			fs = int(fs * r.size.x * 0.88 / ts.x)
+			ts = font.get_string_size(pad["text"], HORIZONTAL_ALIGNMENT_CENTER, -1, fs)
 		draw_string(font, Vector2(r.position.x + (r.size.x - ts.x) * 0.5, r.get_center().y + fs * 0.35), pad["text"], HORIZONTAL_ALIGNMENT_CENTER, -1, fs, Color(1, 1, 1, 0.92))
 	if drive_mode:
 		var sr := _rect("steer")
