@@ -18,8 +18,10 @@ static func tex(name: String, map: String, gray := false) -> Texture2D:
 	var key := "%s_%s_%s" % [name, map, gray]
 	if _cache.has(key):
 		return _cache[key]
-	var img := Image.load_from_file(MeshUtil.raw_path(DIR + name + "_" + map + ".jpg"))
-	if img == null:
+	# Читаем байты сами: Image.load_from_file ругается на res://, хотя у файла importer="keep".
+	var bytes := FileAccess.get_file_as_bytes(MeshUtil.raw_path(DIR + name + "_" + map + ".jpg"))
+	var img := Image.new()
+	if bytes.is_empty() or img.load_jpg_from_buffer(bytes) != OK:
 		return null
 	if gray:
 		# Обесцвечиваем средствами движка (попиксельный цикл на 2K слишком медленный),

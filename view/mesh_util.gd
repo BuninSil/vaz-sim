@@ -6,11 +6,11 @@ extends RefCounted
 static var _materials := {}
 
 
-# Модели, текстуры и звуки грузятся из исходных файлов, мимо импорта. В редакторе
-# берём их с диска по абсолютному пути, в сборке (APK) — из пакета по res://:
-# там абсолютного пути нет, файлы кладёт туда фильтр экспорта (export_presets.cfg).
+# Модели, текстуры и звуки грузятся из исходных файлов, мимо импорта (в .import у них
+# importer="keep": файл попадает в сборку как есть). Путь — только res://: абсолютного
+# пути на диске в APK нет.
 static func raw_path(res_path: String) -> String:
-	return ProjectSettings.globalize_path(res_path) if OS.has_feature("editor") else res_path
+	return res_path
 
 
 static func material(name: String) -> StandardMaterial3D:
