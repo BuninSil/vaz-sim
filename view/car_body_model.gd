@@ -737,6 +737,11 @@ func update_lights(delta: float, braking: bool, reversing: bool) -> void:
 			if lo != null:
 				lo.light_color = Color(1.0, 0.55, 0.05)
 				lo.light_energy = 0.9 if on else 0.0
+	# Погашенный свет выключаем совсем: с нулевой яркостью движок всё равно считает
+	# его для каждого объекта рядом, а у ближнего ещё и рисует тень.
+	for list in [_bulbs_outer, _bulbs_inner, _beams, _high_beams, _glow_lights.values()]:
+		for l in list:
+			(l as Light3D).visible = (l as Light3D).light_energy > 0.001
 
 
 func _tune_materials(root: Node) -> void:

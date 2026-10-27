@@ -122,7 +122,10 @@ func _ready() -> void:
 		hud.refresh_gear_buttons()
 		hud.show_message("Установлена %s, главная пара %.2f" % [EngineSpecs.GEARBOXES[id]["title"], fd])
 	)
-	hud.request_quality.connect(func(i: int) -> void: cinematic.set_quality(i))
+	hud.request_quality.connect(func(i: int) -> void:
+		cinematic.set_quality(i)
+		_apply_quality_extras()
+	)
 	hud.request_camera.connect(func(m: int) -> void:
 		if drive_mode:
 			rig.set_mode(m)
@@ -414,11 +417,28 @@ func _setup_lite() -> void:
 	MeshUtil.lite = true
 	var vp := get_viewport()
 	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
-	vp.scaling_3d_scale = 0.7
 	vp.mesh_lod_threshold = 4.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	RenderingServer.directional_shadow_atlas_set_size(2048, true)
 	Engine.max_fps = 60
+	_apply_quality_extras()
+
+
+# Что зависит от качества графики помимо настроек окружения (Cinematic.set_quality):
+# разрешение 3D, тень солнца, трава. На минимуме — половина разрешения, без теней и травы.
+func _apply_quality_extras() -> void:
+	var q := cinematic.quality
+	var vp := get_viewport()
+	if MeshUtil.lite:
+		vp.scaling_3d_scale = 0.5 if q == 3 else 0.7
+	else:
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+		vp.scaling_3d_scale = 0.75 if q == 3 else 1.0
+	sun.shadow_enabled = q != 3
+	if road != null:
+		for n in road.get_children():
+			if n.get_meta("veg", "") in ["grass", "plant"]:
+				(n as Node3D).visible = q != 3
 
 
 func _shift(dir: int) -> void:
@@ -738,6 +758,7 @@ func set_drive_mode(on: bool) -> void:
 			car.road = road
 			car.vd = sim.drivetrain.vehicle
 			add_child(car)
+			hud.perf.car = car
 			car.teleported.connect(func() -> void:
 				if effects != null:
 					effects.clear_skids()
@@ -746,6 +767,7 @@ func set_drive_mode(on: bool) -> void:
 			)
 			car.body_model.opening_moved.connect(_on_opening_moved)
 			_apply_garage()
+			_apply_quality_extras()
 			effects = CarEffects.new()
 			effects.car = car
 			effects.sim = sim

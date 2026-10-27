@@ -258,6 +258,7 @@ static func plant(road: Road) -> void:
 			mm.set_instance_color(i, Color(1, 1, 1).lerp(Color(0.8, 0.88, 0.7), rng.randf()))
 		var mi := MultiMeshInstance3D.new()
 		mi.multimesh = mm
+		mi.set_meta("veg", "tree")
 		road.add_child(mi)
 	_plant_grass(road)
 	_plant_photo_plants(road)
@@ -314,6 +315,7 @@ static func _plant_grass(road: Road) -> void:
 		mi.visibility_range_end = 70.0 if MeshUtil.lite else 110.0
 		mi.visibility_range_end_margin = 10.0
 		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		mi.set_meta("veg", "grass")
 		road.add_child(mi)
 		d0 += 50.0
 
@@ -424,5 +426,6 @@ static func _plant_photo_plants(road: Road) -> void:
 				mi.visibility_range_end = g[5]
 				mi.visibility_range_end_margin = 8.0
 				mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+				mi.set_meta("veg", "shrub" if g[0] == "shrub_04" else "plant")
 				road.add_child(mi)
 			d0 += 100.0

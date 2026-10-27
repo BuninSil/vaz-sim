@@ -71,6 +71,8 @@ var follow_check: CheckBox
 var lights_option: OptionButton
 var quality_option: OptionButton
 var touch_check: Button
+var perf: PerfOverlay
+var perf_check: Button
 var _view_buttons: Array[Button] = []
 
 var gauge_row: HBoxContainer
@@ -95,6 +97,9 @@ func _ready() -> void:
 	_build_info()
 	_build_tabs()
 	_build_help()
+	perf = PerfOverlay.new()
+	perf.visible = false
+	add_child(perf)
 	_build_toolbar()
 	_no_keyboard_focus(self)
 	_fit_widths(tabs)
@@ -173,6 +178,8 @@ func _build_toolbar() -> void:
 		_layout()
 	)
 	touch_check.tooltip_text = "Экранные кнопки: руль, педали, стартер"
+	perf_check = _toggle(toolbar, "FPS", false, func(on: bool) -> void: perf.visible = on)
+	perf_check.tooltip_text = "Счётчик производительности: кадры, процессор, видеокарта, расчёт двигателя"
 	var minus := _button(toolbar, "A−", func() -> void: set_ui_scale(ui_scale - 0.1))
 	minus.tooltip_text = "Уменьшить интерфейс"
 	var plus := _button(toolbar, "A+", func() -> void: set_ui_scale(ui_scale + 0.1))
@@ -212,8 +219,9 @@ func setup_mobile() -> void:
 	(toolbar.get_child(0) as Button).button_pressed = false
 	(toolbar.get_child(2) as Button).button_pressed = false
 	help_label.text = "Палец — вращать камеру · два пальца — масштаб · касание — выбрать деталь, двойное — снять/поставить"
-	quality_option.select(2)
-	quality_option.item_selected.emit(2)
+	quality_option.select(3)
+	quality_option.item_selected.emit(3)
+	perf_check.button_pressed = true
 
 
 func toggle_panel() -> void:
@@ -631,7 +639,7 @@ func _tab_drive() -> void:
 	ql.text = "Графика:"
 	qr.add_child(ql)
 	var q := OptionButton.new()
-	for item in ["Кино (SSIL, объёмный туман, ГРИП)", "Высокая", "Быстрая"]:
+	for item in ["Кино (SSIL, объёмный туман, ГРИП)", "Высокая", "Быстрая", "Телефон (минимум)"]:
 		q.add_item(item)
 	q.item_selected.connect(func(i: int) -> void: request_quality.emit(i))
 	qr.add_child(q)

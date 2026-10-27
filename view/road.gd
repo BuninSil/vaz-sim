@@ -284,12 +284,13 @@ func _build_chunk(d0: float, d1: float, mat: Material) -> void:
 	while x <= WIDTH * 0.5 + 6.0 + 1e-4:
 		xs.append(x)
 		var ax := absf(x)
-		x += 0.12 if ax < WIDTH * 0.5 + 0.5 else 0.75
+		# На телефоне сетка вдвое-втрое реже: колёса считают высоту по формуле, не по сетке.
+		x += (0.3 if MeshUtil.lite else 0.12) if ax < WIDTH * 0.5 + 0.5 else 0.75
 	var ds := PackedFloat32Array()
 	var d := d0
 	while d < d1:
 		ds.append(d)
-		d += _row_step(d)
+		d += _row_step(d) * (1.8 if MeshUtil.lite else 1.0)
 	ds.append(d1)
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)

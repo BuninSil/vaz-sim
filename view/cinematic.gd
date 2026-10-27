@@ -113,7 +113,7 @@ var sky_mat: ShaderMaterial
 var post: ColorRect
 var post_mat: ShaderMaterial
 var attrs: CameraAttributesPractical
-var quality := 0          # 0 — кино, 1 — высокое, 2 — быстрое
+var quality := 0          # 0 — кино, 1 — высокое, 2 — быстрое, 3 — телефон (минимум)
 var outdoor := false
 
 
@@ -152,8 +152,10 @@ func set_quality(q: int) -> void:
 	var vp := get_viewport()
 	vp.use_taa = q <= 1
 	vp.msaa_3d = Viewport.MSAA_DISABLED
-	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED if q <= 1 else Viewport.SCREEN_SPACE_AA_FXAA
-	vp.use_debanding = true
+	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if q == 2 else Viewport.SCREEN_SPACE_AA_DISABLED
+	vp.use_debanding = q <= 2
+	# Отражения неба: на минимуме карта крошечная — металлу хватает.
+	env.sky.radiance_size = Sky.RADIANCE_SIZE_64 if q == 3 else Sky.RADIANCE_SIZE_256
 	env.ssil_enabled = q == 0
 	env.ssil_radius = 4.0
 	env.ssil_intensity = 0.8
@@ -166,13 +168,13 @@ func set_quality(q: int) -> void:
 
 func apply_outdoor(on: bool) -> void:
 	outdoor = on
-	env.glow_enabled = true
+	env.glow_enabled = quality <= 2
 	env.glow_intensity = 0.55
 	env.glow_bloom = 0.06
 	env.glow_hdr_threshold = 1.0
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
-	env.adjustment_enabled = true
+	env.adjustment_enabled = quality <= 2
 	env.adjustment_contrast = 1.08
 	env.adjustment_saturation = 1.08
 	env.ssao_enabled = quality <= 1

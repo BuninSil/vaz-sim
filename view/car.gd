@@ -34,9 +34,12 @@ const TIRE_C := 350.0
 const REST_LEN := 0.35
 const MAX_STEER := deg_to_rad(33.0)
 const SUBSTEPS := 8
+const SUBSTEPS_LITE := 4   # телефон: шины и подвеска вдвое реже — крен, сцепление и торможение те же, отличаются лишь пики в переходных
 
 signal teleported
 
+var sim_ms := 0.0      # сколько считался последний шаг двигателя (фоновый поток)
+var wait_ms := 0.0     # сколько главный поток ждал этот расчёт
 var sim: EngineSim
 var SPRING: Array[float] = SPRING_DEFAULT.duplicate()
 var BUMP_DAMP: Array[float] = BUMP_DEFAULT.duplicate()
@@ -212,11 +215,12 @@ func _physics_process(delta: float) -> void:
 			wheel_heading[1] = -outer
 
 	# Вертикальная динамика колёс на подшагах.
-	var h := delta / SUBSTEPS
+	var substeps := SUBSTEPS_LITE if MeshUtil.lite else SUBSTEPS
+	var h := delta / substeps
 	var spring_acc: Array[float] = [0.0, 0.0, 0.0, 0.0]
 	var tire_acc: Array[float] = [0.0, 0.0, 0.0, 0.0]
 	var origin := global_position
-	for s in SUBSTEPS:
+	for s in substeps:
 		var forces: Array[float] = [0.0, 0.0, 0.0, 0.0]
 		for i in 4:
 			var l := susp_len[i]
@@ -254,8 +258,8 @@ func _physics_process(delta: float) -> void:
 			var acc := (forces[i] - ft * up.y + m * 9.81 * up.y) / m + a_up
 			susp_vel[i] += acc * h
 			susp_len[i] += susp_vel[i] * h
-			spring_acc[i] += forces[i] / SUBSTEPS
-			tire_acc[i] += ft / SUBSTEPS
+			spring_acc[i] += forces[i] / substeps
+			tire_acc[i] += ft / substeps
 	for i in 4:
 		spring_force[i] = spring_acc[i]
 		tire_force[i] = tire_acc[i]
@@ -289,7 +293,7 @@ func _physics_process(delta: float) -> void:
 	# главный поток не простаивает, а шаги физики остаются равномерными.
 	var fx := vd.take_forces().duplicate()
 	if threaded:
-		_task = WorkerThreadPool.add_task(sim.advance.bind(delta), true, "Расчёт двигателя")
+		_task = WorkerThreadPool.add_task(_advance_timed.bind(delta), true, "Расчёт двигателя")
 	else:
 		sim.advance(delta)
 		sim.publish()
@@ -372,10 +376,19 @@ func _process(_delta: float) -> void:
 	body_model.update_pose()
 
 
+# Шаг двигателя в фоне с замером: счётчик производительности показывает его отдельно.
+func _advance_timed(delta: float) -> void:
+	var t0 := Time.get_ticks_usec()
+	sim.advance(delta)
+	sim_ms = (Time.get_ticks_usec() - t0) / 1000.0
+
+
 # Дожидается фонового расчёта и передаёт его результаты главному потоку.
 func finish_sim() -> void:
 	if _task >= 0:
+		var t0 := Time.get_ticks_usec()
 		WorkerThreadPool.wait_for_task_completion(_task)
+		wait_ms = (Time.get_ticks_usec() - t0) / 1000.0
 		_task = -1
 		sim.publish()
 
