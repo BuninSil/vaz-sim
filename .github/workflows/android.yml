@@ -85,6 +85,8 @@ jobs:
             APK_COMMIT=$PREV_APK_COMMIT
           fi
           echo "{\"build\": $BUILD, \"apk\": $APK}" > version.json
+          # Android ставит поверх только APK с кодом версии не меньше установленного.
+          sed -i "s/^version\/code=.*/version\/code=$BUILD/; s/^version\/name=.*/version\/name=\"0.$BUILD\"/" export_presets.cfg
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
           echo "apk=$APK" >> "$GITHUB_OUTPUT"
           echo "apk_commit=$APK_COMMIT" >> "$GITHUB_OUTPUT"
