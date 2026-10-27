@@ -148,6 +148,19 @@ func _load_external_model() -> void:
 			local.origin -= center_in_spin
 			m.transform = Transform3D.IDENTITY.scaled(Vector3.ONE * tire_scale) * local
 	_split_openings(scene)
+	if MeshUtil.lite:
+		var movable: Array = [interior]
+		for name in openings:
+			movable.append(openings[name]["pivot"])
+		MeshUtil.merge_by_material(scene, movable)
+		MeshUtil.merge_by_material(interior, interior.movable_parts())
+		for name in openings:
+			MeshUtil.merge_by_material(openings[name]["pivot"])
+		MeshUtil.generate_mesh_lods(scene)
+		# Тени салона и ходовой под кузовом не видны, а отрисовка теней — каждый кусок заново.
+		for root in [interior, chassis]:
+			for n in (root as Node).find_children("*", "GeometryInstance3D", true, false):
+				(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 # Возвращает для каждого колеса список новых мешей, вырезанных из общих сеток модели.
@@ -729,11 +742,18 @@ func update_lights(delta: float, braking: bool, reversing: bool) -> void:
 func _tune_materials(root: Node) -> void:
 	# У исходных материалов шероховатость часто 0 — всё блестит как зеркало.
 	# Даём каждому правдоподобные свойства по цвету и прозрачности.
+	# На телефоне одинаковые исходные материалы настраиваются один раз и делятся между
+	# сетками — иначе у каждой своя копия и слить их в один вызов отрисовки нельзя.
+	var shared := {}
 	for n in root.find_children("*", "MeshInstance3D", true, false):
 		var mi := n as MeshInstance3D
 		for k in mi.mesh.get_surface_count():
 			var src := mi.get_active_material(k) as StandardMaterial3D
 			if src == null:
+				continue
+			var share_key := "%d_%s" % [src.get_instance_id(), mi.name == "Object_27"]
+			if MeshUtil.lite and shared.has(share_key):
+				mi.set_surface_override_material(k, shared[share_key])
 				continue
 			var m := src.duplicate() as StandardMaterial3D
 			var c := m.albedo_color
@@ -773,6 +793,7 @@ func _tune_materials(root: Node) -> void:
 			m.set_meta("orig_transparency", m.transparency)
 			mi.set_surface_override_material(k, m)
 			model_materials.append(m)
+			shared[share_key] = m
 
 
 func _paint(name: String, color: Color, metallic := 0.35, rough := 0.35) -> StandardMaterial3D:

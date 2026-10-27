@@ -11,24 +11,20 @@ func _initialize() -> void:
 	root.add_child(main)
 
 
-# Касания приходят в координатах окна; без окна оно крошечное, а интерфейс растянут.
-func _win(p: Vector2) -> Vector2:
-	return root.get_final_transform() * p
-
-
+# Касания подаём сразу в координатах вьюпорта — так их видят кнопки при любом масштабе интерфейса.
 func _touch(idx: int, p: Vector2, on: bool) -> void:
 	var e := InputEventScreenTouch.new()
 	e.index = idx
-	e.position = _win(p)
+	e.position = p
 	e.pressed = on
-	Input.parse_input_event(e)
+	root.push_input(e, true)
 
 
 func _drag(idx: int, p: Vector2) -> void:
 	var e := InputEventScreenDrag.new()
 	e.index = idx
-	e.position = _win(p)
-	Input.parse_input_event(e)
+	e.position = p
+	root.push_input(e, true)
 
 
 func _process(_d: float) -> bool:
@@ -39,6 +35,14 @@ func _process(_d: float) -> bool:
 		main.set_drive_mode(true)
 		main.car.place(30.0)
 		print("кнопки видны: ", tc.visible, ", площадок: ", tc._pads.size())
+		var vr := tc.get_viewport_rect()
+		for i in tc._pads.size():
+			var a: Rect2 = tc._pads[i]["rect"]
+			if not vr.encloses(a):
+				print("  ВЫЛЕЗЛА ЗА ЭКРАН: ", tc._pads[i]["id"])
+			for j in range(i + 1, tc._pads.size()):
+				if a.intersects(tc._pads[j]["rect"]):
+					print("  НАЛЕЗАЮТ: ", tc._pads[i]["id"], " и ", tc._pads[j]["id"])
 	if f == 10:
 		_touch(0, tc._rect("crank").get_center(), true)
 	if f > 10 and f < 200 and main.sim.rpm() > 900.0 and main.sim.electrical.key == 2:

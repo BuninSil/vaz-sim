@@ -4,6 +4,118 @@ extends RefCounted
 # Построение простых деталей: примитивы, выдавленные профили, материалы.
 
 static var _materials := {}
+# Облегчённая графика для телефона: меньше растений, LOD у моделей, тени попроще.
+static var lite := false
+
+
+# Упрощённые копии сетки для дальних планов: движок сам переключает их по размеру на экране.
+# Телефон: неподвижные сетки под root сливаются по материалу — сотни вызовов отрисовки
+# (и столько же в каждой полосе теней) превращаются в десятки. Материалы остаются теми же
+# объектами, так что перекраска, стёкла и рентген работают как прежде. В узлы из skip
+# (петли дверей, салон) не заходим: они двигаются отдельно.
+static func merge_by_material(root: Node3D, skip: Array = []) -> int:
+	var found: Array[MeshInstance3D] = []
+	_collect_static(root, skip, found)
+	var inv := root.global_transform.affine_inverse()
+	var groups := {}
+	var order: Array = []
+	for mi in found:
+		for k in mi.mesh.get_surface_count():
+			var key := _merge_key(mi, k)
+			if key == "":
+				continue
+			if not groups.has(key):
+				groups[key] = []
+				order.append(key)
+			groups[key].append([mi, k])
+	var touched := {}
+	var merged := 0
+	for key in order:
+		var list: Array = groups[key]
+		if list.size() < 2:
+			groups.erase(key)
+			continue
+		var st := SurfaceTool.new()
+		for e in list:
+			var mi: MeshInstance3D = e[0]
+			st.append_from(mi.mesh, e[1], inv * mi.global_transform)
+			touched[mi] = true
+		var out := MeshInstance3D.new()
+		out.name = "Merged"
+		out.mesh = st.commit()
+		var first: MeshInstance3D = list[0][0]
+		out.mesh.surface_set_material(0, first.material_override if first.material_override != null else first.get_active_material(list[0][1]))
+		out.cast_shadow = (list[0][0] as MeshInstance3D).cast_shadow
+		root.add_child(out)
+		merged += list.size()
+	for mi in touched:
+		var src: Mesh = (mi as MeshInstance3D).mesh
+		var rest := ArrayMesh.new()
+		for k in src.get_surface_count():
+			if groups.has(_merge_key(mi, k)):
+				continue
+			var prim := (src as ArrayMesh).surface_get_primitive_type(k) if src is ArrayMesh else Mesh.PRIMITIVE_TRIANGLES
+			rest.add_surface_from_arrays(prim, src.surface_get_arrays(k))
+			rest.surface_set_material(rest.get_surface_count() - 1, (mi as MeshInstance3D).get_active_material(k))
+		if rest.get_surface_count() == 0:
+			(mi as Node).get_parent().remove_child(mi)
+			(mi as Node).queue_free()
+		else:
+			(mi as MeshInstance3D).mesh = rest
+			for k in rest.get_surface_count():
+				(mi as MeshInstance3D).set_surface_override_material(k, null)
+	return merged
+
+
+static func _collect_static(n: Node, skip: Array, out: Array[MeshInstance3D]) -> void:
+	for c in n.get_children():
+		if skip.has(c) or not (c is Node3D) or not (c as Node3D).visible:
+			continue
+		var mi := c as MeshInstance3D
+		if mi != null and mi.mesh != null and mi.get_child_count() == 0 and mi.skin == null \
+				and not (mi.mesh is ArrayMesh and (mi.mesh as ArrayMesh).get_blend_shape_count() > 0):
+			out.append(mi)
+		_collect_static(c, skip, out)
+
+
+static func _merge_key(mi: MeshInstance3D, k: int) -> String:
+	# У примитивов (BoxMesh и т. п.) всегда треугольники и один набор атрибутов.
+	var fmt := "p"
+	if mi.mesh is ArrayMesh:
+		var am := mi.mesh as ArrayMesh
+		if am.surface_get_primitive_type(k) != Mesh.PRIMITIVE_TRIANGLES:
+			return ""
+		fmt = str(am.surface_get_format(k) & (Mesh.ARRAY_FORMAT_CUSTOM_BASE - 1))
+	var mat := mi.material_override if mi.material_override != null else mi.get_active_material(k)
+	return "%d_%s_%d" % [mat.get_instance_id() if mat != null else 0, fmt, mi.cast_shadow]
+
+
+# LOD для готовых сеток (после слияния и нарезки у них упрощённых копий нет).
+static func generate_mesh_lods(root: Node) -> void:
+	for n in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if not (mi.mesh is ArrayMesh) or mi.skin != null:
+			continue
+		var tris := 0
+		for k in mi.mesh.get_surface_count():
+			tris += mi.mesh.surface_get_array_index_len(k) / 3
+		if tris < 300:
+			continue
+		var im := ImporterMesh.from_mesh(mi.mesh)
+		im.generate_lods(60.0, 0.0, [])
+		var overrides := []
+		for k in mi.mesh.get_surface_count():
+			overrides.append(mi.get_surface_override_material(k))
+		mi.mesh = im.get_mesh()
+		for k in overrides.size():
+			mi.set_surface_override_material(k, overrides[k])
+
+
+static func generate_lods(state: GLTFState) -> void:
+	for gm in state.get_meshes():
+		var im := gm.mesh
+		if im != null and im.get_surface_count() > 0:
+			im.generate_lods(60.0, 0.0, [])
 
 
 # Модели, текстуры и звуки грузятся из исходных файлов, мимо импорта (в .import у них

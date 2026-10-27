@@ -519,6 +519,15 @@ func _set_needle(name: String, t: float) -> void:
 	(n[0] as Node3D).rotation = Vector3(0, lerpf(n[1], n[2], clampf(t, 0.0, 1.0)), 0)
 
 
+# Подвижные части салона — их нельзя сливать с неподвижной геометрией.
+func movable_parts() -> Array:
+	var out: Array = [steering_wheel, gear_lever, handbrake_lever]
+	out.append_array(pedals)
+	for k in needles:
+		out.append(needles[k][0])
+	return out
+
+
 func update_view(car: Car, sim: EngineSim, delta: float, backlight: bool) -> void:
 	var k := 1.0 - exp(-delta * 8.0)
 	var powered := sim.electrical.key >= 1

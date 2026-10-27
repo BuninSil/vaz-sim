@@ -1,0 +1,140 @@
+# Сборка для телефона на каждый пуш в main.
+# Обычно выходит только патч (скрипты, сцены, мелкие ресурсы, несколько мегабайт) —
+# приложение само скачает его и применит при следующем запуске.
+# Новый APK собирается, когда поменялось то, что патчем не довезти: модели и звуки,
+# настройки проекта и экспорта, загрузчик, версия движка — или в сообщении коммита есть [apk].
+# Всё лежит в релизе с тегом android: version.json, patch.pck, vaz-sim.apk.
+#
+# Нужны секреты репозитория: ANDROID_KEYSTORE_BASE64 (ключ, base64) и ANDROID_KEYSTORE_PASSWORD.
+
+name: Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      apk:
+        description: "Собрать и новый APK"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: 4.7.2
+  RELEASE_TAG: android
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Godot и шаблоны экспорта
+        run: |
+          set -e
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot && rm godot.zip
+          curl -fsSL -o tpl.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          T="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$T"
+          unzip -qj tpl.tpz 'templates/android_release.apk' 'templates/android_debug.apk' 'templates/version.txt' -d "$T"
+          rm tpl.tpz
+
+      - name: Что выпускаем
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE_APK: ${{ inputs.apk }}
+        run: |
+          set -e
+          BUILD=${{ github.run_number }}
+          if curl -fsSL -o prev.json "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/version.json"; then
+            PREV_APK=$(jq -r '.apk' prev.json)
+            PREV_APK_COMMIT=$(jq -r '.apk_commit' prev.json)
+          else
+            PREV_APK=0
+            PREV_APK_COMMIT=""
+          fi
+          NEED_APK=false
+          if [ "$PREV_APK" = "0" ] || [ "$FORCE_APK" = "true" ] || git log -1 --format=%B | grep -q '\[apk\]'; then
+            NEED_APK=true
+          elif ! git cat-file -e "${PREV_APK_COMMIT}^{commit}" 2>/dev/null; then
+            NEED_APK=true
+          elif git diff --name-only "$PREV_APK_COMMIT" HEAD | grep -qE '^(models/|project\.godot|export_presets\.cfg|boot\.(gd|tscn)|icon\.svg|\.github/workflows/android\.yml)'; then
+            NEED_APK=true
+          fi
+          if [ "$NEED_APK" = "true" ]; then
+            APK=$BUILD
+            APK_COMMIT=$GITHUB_SHA
+          else
+            APK=$PREV_APK
+            APK_COMMIT=$PREV_APK_COMMIT
+          fi
+          echo "{\"build\": $BUILD, \"apk\": $APK}" > version.json
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "apk=$APK" >> "$GITHUB_OUTPUT"
+          echo "apk_commit=$APK_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "need_apk=$NEED_APK" >> "$GITHUB_OUTPUT"
+          echo "Сборка $BUILD, APK $APK, новый APK: $NEED_APK"
+
+      - name: Импорт
+        run: timeout 1200 ./godot --headless --path . --import || true
+
+      - name: Патч
+        run: |
+          set -e
+          mkdir -p build
+          ./godot --headless --path . --export-pack "Патч" build/patch.pck
+          ls -la build/patch.pck
+
+      - name: APK
+        if: steps.plan.outputs.need_apk == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: vaz
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -e
+          if [ -z "$KEYSTORE_B64" ]; then echo "::error::Нет секрета ANDROID_KEYSTORE_BASE64"; exit 1; fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/vaz.keystore"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$RUNNER_TEMP/vaz.keystore"
+          # Отладочный ключ движок требует для проверки настроек, подписываем всё равно постоянным.
+          keytool -genkeypair -keystore "$RUNNER_TEMP/debug.keystore" -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          mkdir -p ~/.config/godot
+          printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/java_sdk_path = "%s"\nexport/android/android_sdk_path = "%s"\nexport/android/debug_keystore = "%s"\nexport/android/debug_keystore_user = "androiddebugkey"\nexport/android/debug_keystore_pass = "android"\n' "$JAVA_HOME" "$ANDROID_HOME" "$RUNNER_TEMP/debug.keystore" > ~/.config/godot/editor_settings-4.7.tres
+          ./godot --headless --path . --export-release "Android" build/vaz-sim.apk
+          ls -la build/vaz-sim.apk
+
+      - name: Манифест и релиз
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          R="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}"
+          NOTES=$(git log -1 --format=%s | head -c 200)
+          jq -n --argjson build ${{ steps.plan.outputs.build }} --argjson apk ${{ steps.plan.outputs.apk }} \
+            --arg apk_commit "${{ steps.plan.outputs.apk_commit }}" --arg sha "$(sha256sum build/patch.pck | cut -d' ' -f1)" \
+            --arg notes "$NOTES" --arg r "$R" \
+            '{build: $build, apk: $apk, apk_commit: $apk_commit, patch_url: ($r + "/patch.pck"), patch_sha256: $sha, apk_url: ($r + "/vaz-sim.apk"), notes: $notes}' > build/version.json
+          cat build/version.json
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --title "Android" --notes "Сборка для телефона. Ставь vaz-sim.apk, дальше обновляется само."
+          FILES="build/patch.pck"
+          [ -f build/vaz-sim.apk ] && FILES="$FILES build/vaz-sim.apk"
+          # Манифест — последним: пока файлы не залиты, приложения видят старую версию.
+          gh release upload "$RELEASE_TAG" $FILES --clobber
+          gh release upload "$RELEASE_TAG" build/version.json --clobber

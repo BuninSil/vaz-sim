@@ -289,7 +289,8 @@ static func _plant_grass(road: Road) -> void:
 		for side in [-1.0, 1.0]:
 			var dd := d0
 			while dd < d0 + 50.0:
-				var x := w * 0.5 + 6.5
+				# Без фото-травы (телефон) карточки подходят к самой обочине.
+				var x := w * 0.5 + (1.5 if MeshUtil.lite else 6.5)
 				while x < w * 0.5 + 24.0:
 					var px: float = side * (x + rng.randf_range(-0.3, 0.3))
 					var pz := -(dd + rng.randf_range(-0.3, 0.3))
@@ -310,7 +311,7 @@ static func _plant_grass(road: Road) -> void:
 		var mi := MultiMeshInstance3D.new()
 		mi.multimesh = mm
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mi.visibility_range_end = 110.0
+		mi.visibility_range_end = 70.0 if MeshUtil.lite else 110.0
 		mi.visibility_range_end_margin = 10.0
 		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		road.add_child(mi)
@@ -331,6 +332,8 @@ static func _load_variants(model: String, names: Array) -> Array:
 	var st := GLTFState.new()
 	if doc.append_from_file(path, st) != OK:
 		return []
+	if MeshUtil.lite:
+		MeshUtil.generate_lods(st)
 	var scene := doc.generate_scene(st) as Node3D
 	var out := []
 	for n in scene.find_children("*", "MeshInstance3D", true, false):
@@ -377,6 +380,12 @@ static func _plant_photo_plants(road: Road) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9001
 	for g in groups:
+		# На телефоне фото-трава (миллионы треугольников) уступает карточкам,
+		# остальное — реже и ближе.
+		if MeshUtil.lite and String(g[0]).begins_with("grass_medium"):
+			continue
+		if MeshUtil.lite:
+			g = [g[0], g[1], g[2] * 0.5, g[3], g[4], g[5] * 0.6]
 		var variants := _load_variants(g[0], g[1])
 		if variants.is_empty():
 			continue
@@ -411,7 +420,7 @@ static func _plant_photo_plants(road: Road) -> void:
 					mm.set_instance_transform(i, Transform3D(t.basis * nb, t.origin))
 				var mi := MultiMeshInstance3D.new()
 				mi.multimesh = mm
-				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if g[0] != "shrub_04" else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if g[0] == "shrub_04" and not MeshUtil.lite else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				mi.visibility_range_end = g[5]
 				mi.visibility_range_end_margin = 8.0
 				mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF

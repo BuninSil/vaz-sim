@@ -37,5 +37,16 @@ func _process(_d: float) -> bool:
 		(main.hud.toolbar.get_child(0) as Button).button_pressed = true
 	if f == 420:
 		_shot("touch_trassa_panel")
+		(main.hud.toolbar.get_child(0) as Button).button_pressed = false
+		main.car.body_model.toggle_opening("door_fl")
+		main.car.body_model.toggle_opening("hood")
+		main.rig._goal_yaw += 1.2
+		main.rig._goal_distance = 4.5
+	if f == 470:
+		_shot("touch_dveri")
+		main.rig.set_mode(1)
+	if f == 490:
+		_shot("touch_salon")
+		print("draw calls: ", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), ", треугольников: ", Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
 		return true
 	return false

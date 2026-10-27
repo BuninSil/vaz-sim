@@ -151,6 +151,7 @@ func _ready() -> void:
 	if OS.has_feature("mobile") or "--touch" in OS.get_cmdline_user_args():
 		hud.touch_check.button_pressed = true
 		hud.setup_mobile()
+		_setup_lite()
 
 
 func _build_world() -> void:
@@ -405,6 +406,19 @@ func _unhandled_input(event: InputEvent) -> void:
 					_install(p)
 				else:
 					_remove(p)
+
+
+# Телефон: трёхмерная картинка в 0,7 разрешения с FSR, тени в две полосы и мельче,
+# растения и модели облегчаются при постройке трассы (MeshUtil.lite).
+func _setup_lite() -> void:
+	MeshUtil.lite = true
+	var vp := get_viewport()
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
+	vp.scaling_3d_scale = 0.7
+	vp.mesh_lod_threshold = 4.0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	RenderingServer.directional_shadow_atlas_set_size(2048, true)
+	Engine.max_fps = 60
 
 
 func _shift(dir: int) -> void:
@@ -752,7 +766,7 @@ func set_drive_mode(on: bool) -> void:
 		car.engine_mount.add_child(model)
 		model.transform = Transform3D.IDENTITY
 		rig.start_follow(car.visual)
-		sun.directional_shadow_max_distance = 40.0
+		sun.directional_shadow_max_distance = 25.0 if MeshUtil.lite else 40.0
 		_apply_environment(true)
 		model.visible = car.body_model.xray
 		audio.car = car
