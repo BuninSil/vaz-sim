@@ -115,7 +115,8 @@ func _no_keyboard_focus(n: Node) -> void:
 # на совсем узких показания прячутся (их можно вернуть кнопкой).
 func _layout() -> void:
 	var vs := get_viewport_rect().size
-	var tab_w := clampf(vs.x * 0.27, 330.0, 470.0)
+	# Не уже содержимого вкладок, иначе панель уезжает за правый край (телефон, крупный интерфейс).
+	var tab_w := maxf(clampf(vs.x * 0.27, 330.0, 470.0), tabs.get_combined_minimum_size().x)
 	tabs.offset_left = -tab_w - 10.0
 	var free_w := vs.x - tab_w - 30.0
 	var gauge_k := clampf(minf(free_w / 600.0, vs.y / 900.0), 0.6, 1.25)
