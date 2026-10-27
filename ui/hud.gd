@@ -97,6 +97,7 @@ func _ready() -> void:
 	_build_help()
 	_build_toolbar()
 	_no_keyboard_focus(self)
+	_fit_widths(tabs)
 	tabs.get_tab_bar().focus_mode = Control.FOCUS_NONE
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -109,6 +110,19 @@ func _no_keyboard_focus(n: Node) -> void:
 		if c is BaseButton or c is Slider or c is ItemList or c is ScrollContainer:
 			(c as Control).focus_mode = Control.FOCUS_NONE
 		_no_keyboard_focus(c)
+
+
+# Длинные подписи не распирают панель: выпадающие списки обрезают текст,
+# флажки переносят строки. Иначе на узком экране вкладки шире самого экрана.
+func _fit_widths(n: Node) -> void:
+	for c in n.get_children():
+		if c is OptionButton:
+			(c as OptionButton).fit_to_longest_item = false
+			(c as OptionButton).clip_text = true
+			(c as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		elif c is CheckBox:
+			(c as CheckBox).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_fit_widths(c)
 
 
 # Раскладка под размер окна: панели сжимаются на узких экранах,
